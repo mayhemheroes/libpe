@@ -10,7 +10,7 @@ ADD . /src
 
 ## Build
 WORKDIR /src
-RUN CC=clang make FUZZING=1 install
+RUN CC=clang make FUZZING=1 && make install
 RUN ldconfig
 
 # Package Stage
