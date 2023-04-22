@@ -51,7 +51,7 @@ ifeq ($(FUZZING), 1)
 	CC = clang
 	CXX = clang++
 	override CFLAGS += -fsanitize=fuzzer-no-link,address,undefined
-	override LDFLAGS += -fsanitize=address,undefined
+	override LDFLAGS += -fsanitize=fuzzer-no-link,address,undefined
 endif
 
 ####### Compiler options
