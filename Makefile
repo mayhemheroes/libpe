@@ -46,6 +46,14 @@ else
 	STRIP = strip --strip-unneeded
 endif
 
+####### Fuzzing options
+ifeq ($(FUZZING), 1)
+	CC = clang
+	CXX = clang++
+	override CFLAGS += -fsanitize=fuzzer-no-link,address,undefined
+	override LDFLAGS += -fsanitize=fuzzer-no-link,address,undefined
+endif
+
 ####### Compiler options
 
 override CFLAGS += \
@@ -70,13 +78,14 @@ SRC_DIRS = $(srcdir) $(srcdir)/libfuzzy $(srcdir)/libudis86
 libpe_BUILDDIR = $(CURDIR)/build
 libpe_SRCS_FILTER = $(sort $(wildcard ${dir}/*.c))
 libpe_SRCS = $(foreach dir, ${SRC_DIRS}, ${libpe_SRCS_FILTER})
+fuzz_SRCS = $(foreach dir, ${srcdir}/mayhem, ${libpe_SRCS_FILTER})
 libpe_OBJS = $(addprefix ${libpe_BUILDDIR}/, $(addsuffix .o, $(basename ${libpe_SRCS})))
-
+fuzz_OBJS = $(addprefix ${libpe_BUILDDIR}/, $(addsuffix .o, $(basename ${fuzz_SRCS})))
 ####### Build rules
 
-.PHONY : libpe install strip-binaries install-strip uninstall clean
+.PHONY : libpe libpe-fuzz install strip-binaries install-strip uninstall clean
 
-all: libpe
+all: libpe libpe-fuzz
 
 # FIX: WARNING.. ld expects -l option at the END of the command line or after the object files.
 #      From gcc's documentation:
@@ -107,6 +116,12 @@ else ifeq ($(PLATFORM_OS), Darwin)
 		$(LDFLAGS) -o $(LIBNAME).dylib $^ $(LIBS)
 else ifeq ($(PLATFORM_OS), CYGWIN)
 	$(LINK) -shared -o $(LIBNAME).dll $^ $(LDFLAGS) $(LIBS)
+endif
+
+libpe-fuzz: $(fuzz_OBJS) libpe
+ifeq ($(PLATFORM_OS), Linux)
+	clang++  -fsanitize=fuzzer,address,undefined $(CURDIR)/mayhem/fuzz_lib.cpp \
+	 $(LIBNAME).so -o fuzz_pe -I$(CURDIR)/include
 endif
 
 $(libpe_BUILDDIR)/%.o: %.c
@@ -152,6 +167,7 @@ uninstall:
 clean:
 	$(RM_DIR) $(libpe_BUILDDIR)
 	$(RM) $(LIBNAME)*.o \
+		fuzz_pe \
 		$(LIBNAME)*.so \
 		$(LIBNAME)*.dylib \
 		$(LIBNAME)*.dll
